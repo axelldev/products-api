@@ -1,24 +1,40 @@
 package main
 
 import (
-	"net/http"
+	"context"
+	"log"
+	"os"
 
-	"github.com/axelldev/products-api/handler"
-	"github.com/axelldev/products-api/response"
+	"github.com/axelldev/products-api/handlers"
 	"github.com/axelldev/products-api/server"
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	cfg := server.NewServerConfig()
+	err := godotenv.Load()
 
-	r := mux.NewRouter()
-	r.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		response.Json(w, http.StatusOK, map[string]bool{"ok": true})
+	if err != nil {
+		log.Fatal("Error loading .env file", err)
+	}
+
+	port := ":" + os.Getenv("PORT")
+	JWTSecret := os.Getenv("JWT_SECRET")
+	databaseURL := os.Getenv("DATABASE_URL")
+
+	svr, err := server.NewServer(context.Background(), &server.Config{
+		Port:        port,
+		JWTSecret:   JWTSecret,
+		DatabaseUrl: databaseURL,
 	})
-	r.HandleFunc("/api/products", handler.HandleProducts)
-	r.HandleFunc("/api/products/{id}", handler.DetailProduct)
 
-	server := server.NewServer(cfg, r)
-	server.Run()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	svr.Run(RouteBinder)
+}
+
+func RouteBinder(s server.Server, r *mux.Router) {
+	r.HandleFunc("/", handlers.HomeHandler(s))
 }

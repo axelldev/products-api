@@ -1,30 +1,58 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
-// Server configuration
-type Server struct {
-	Cfg    *ServerConfig
-	Router *mux.Router
+type routeBinder func(Server, *mux.Router)
+
+type Config struct {
+	Port        string
+	JWTSecret   string
+	DatabaseUrl string
 }
 
-// NewServer creates a new server instance
-// cfg is the server configuration
-// router is the router instance
-func NewServer(cfg *ServerConfig, router *mux.Router) *Server {
-	return &Server{
-		Cfg:    cfg,
-		Router: router,
+type Server interface {
+	Config() *Config
+}
+
+type Broker struct {
+	conifg *Config
+	router *mux.Router
+}
+
+func (b *Broker) Config() *Config {
+	return b.conifg
+}
+
+func NewServer(ctx context.Context, config *Config) (*Broker, error) {
+	if config.Port == "" {
+		return nil, errors.New("Port is required.")
 	}
+
+	if config.JWTSecret == "" {
+		return nil, errors.New("JWT secret is required.")
+	}
+
+	if config.DatabaseUrl == "" {
+		return nil, errors.New("Database url is required.")
+	}
+
+	return &Broker{
+		conifg: config,
+		router: mux.NewRouter(),
+	}, nil
 }
 
-// Starts and listens server
-func (s *Server) Run() error {
-	log.Println("Starting server on", s.Cfg.Addr)
-	return http.ListenAndServe(s.Cfg.Addr, s.Router)
+func (b *Broker) Run(binder routeBinder) {
+	binder(b, b.router)
+	log.Printf("Server started on port %s", b.conifg.Port)
+	if err := http.ListenAndServe(b.conifg.Port, b.router); err != nil {
+		log.Fatal("Error starting the server:", err)
+	}
 }
