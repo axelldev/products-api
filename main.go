@@ -17,6 +17,7 @@ func main() {
 		response.Json(w, http.StatusOK, map[string]bool{"ok": true})
 	})
 	r.HandleFunc("/api/products", handler.HandleProducts)
+	r.HandleFunc("/api/products/{id}", handler.DetailProduct)
 
 	server := server.NewServer(cfg, r)
 	server.Run()
